@@ -2,6 +2,7 @@ use pingpong::ping_pong_client::PingPongClient;
 use pingpong::Ping;
 use tonic::Request;
 use tokio::time::{sleep, Duration};
+use tonic::transport::{ClientTlsConfig, Channel, Certificate};
 
 pub mod pingpong {
     tonic::include_proto!("pingpong");
@@ -9,7 +10,19 @@ pub mod pingpong {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = PingPongClient::connect("http://[::1]:50051").await?;
+    let pem = std::fs::read_to_string("/Users/dsundquist/workspace/pingpong/tls/ca.pem")?;
+    let ca = Certificate::from_pem(pem);
+
+    let tls = ClientTlsConfig::new()
+        .ca_certificate(ca)
+        .domain_name("pingpong.gotestserver.com");
+
+    let channel = Channel::from_static("https://pingpong.gotestserver.com")
+        .tls_config(tls)?
+        .connect()
+        .await?;
+
+    let mut client = PingPongClient::new(channel);
     
     let mut count = 0;
     
